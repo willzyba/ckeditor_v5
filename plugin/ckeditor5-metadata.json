@@ -1,0 +1,17 @@
+{
+	"plugins": [
+		{
+			"name": "Eqneditor 5",
+			"className": "EqnEditor5",
+			"description": "Adds latex functionality to the CK Editor.",
+			"path": "src/eqneditor5.js",
+			"uiComponents": [
+				{
+					"name": "EqnEditor5",
+					"type": "Button",
+					"iconPath": "theme/icons/fx.svg"
+				}
+			]
+		}
+	]
+}

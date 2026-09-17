@@ -1,0 +1,35 @@
+{
+  "name": "@codecogs/eqneditor-ckeditor5",
+  "version": "2.2.0",
+  "description": "CodeCogs Equation Editor plugin for CKEditor version 5",
+  "keywords": [
+    "ckeditor",
+    "ckeditor5",
+    "ckeditor 5",
+    "ckeditor5-plugin",
+    "equation",
+    "equation-editor",
+    "latex",
+    "mathml",
+    "maths"
+  ],
+  "homepage": "https://editor.codecogs.com/docs/2-CK_Editor_v5.php",
+  "main": "src/index.js",
+  "type": "module",
+  "author": "CodeCogs",
+  "license": "MIT",
+  "files": [
+    "src/index.js",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "peerDependencies": {
+    "ckeditor5": ">=42.0.0"
+  },
+  "scripts": {
+    "start": "http-server ./sample -o"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.0"
+  }
+}
