@@ -5,8 +5,8 @@
   "description": "The CKEditor 5 demo bundle shown on the Equation Editor documentation site",
   "type": "module",
   "scripts": {
-    "build": "esbuild src/demo.js --bundle --preserve-symlinks --format=esm --minify --legal-comments=none --outfile=../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/eqneditor-ckeditor5-demo.js && node -e \"const fs=require('fs');fs.copyFileSync('node_modules/ckeditor5/dist/ckeditor5.css','../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/ckeditor5.css')\"",
-    "build:dev": "esbuild src/demo.js --bundle --preserve-symlinks --format=esm --outfile=../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/eqneditor-ckeditor5-demo.js"
+    "build": "esbuild src/demo.js --bundle --preserve-symlinks --format=esm --alias:ckeditor5=./node_modules/ckeditor5 --minify --legal-comments=none --outfile=../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/eqneditor-ckeditor5-demo.js && node -e \"const fs=require('fs');fs.copyFileSync('node_modules/ckeditor5/dist/ckeditor5.css','../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/ckeditor5.css')\"",
+    "build:dev": "esbuild src/demo.js --bundle --preserve-symlinks --format=esm --alias:ckeditor5=./node_modules/ckeditor5 --outfile=../../../../eqneditor-v5-www/website/html/public/plugins/ckeditor5/eqneditor-ckeditor5-demo.js"
   },
   "dependencies": {
     "@codecogs/eqneditor-ckeditor5": "file:../plugin",

@@ -21,7 +21,7 @@
 
 import {
     Plugin, ButtonView, ContextualBalloon, DomEventObserver, clickOutsideHandler,
-    submitHandler, IconCheck, IconCancel, View,
+    submitHandler, View,
 } from 'ckeditor5';
 
 /* -------------------------------------------------------------------------------------------
@@ -83,6 +83,24 @@ function loadScriptOnce( url ) {
     return promise;
 }
 
+// EqEditor.init() switches the converter every TextArea/MathView/Toolbar construction takes on
+// to fxTeX Pro - skip it and they keep the placeholder converter for their whole lifetime, even
+// once eqneditor.api.min.js itself has loaded. Called once per page; an empty licence is the
+// normal, expected state until a real one is configured.
+let initPromise = null;
+
+function ensureInit( licence ) {
+    if ( initPromise ) {
+        return initPromise;
+    }
+    initPromise = ( typeof window.EqEditor.init === 'function' )
+        ? window.EqEditor.init( { licence: licence || '' } ).catch( err => {
+            window.console && console.warn( `fxTeX Pro: ${ err && err.message || err }` );
+        } )
+        : Promise.resolve();
+    return initPromise;
+}
+
 function loadCssOnce( url ) {
     if ( document.querySelector( `link[href="${ url }"]` ) ) {
         return;
@@ -106,18 +124,44 @@ function loadCssOnce( url ) {
 //    EqnEditorView's template), so the maths view needs to fill the space between the toolbar
 //    and the bottom bar itself.
 // Injected once, since it would otherwise race eqneditor.css over which rule wins.
-function injectStyleOverridesOnce() {
+// The API's own injected @font-face for "Latin Modern Math" only carries
+// local("Latin Modern Math") - no url() fallback - so it silently falls back to a generic
+// serif unless that exact font happens to be installed. A later @font-face for the same
+// family replaces the API's src list rather than merging with it, so redeclaring it here
+// with a real url() fixes every equation and symbol on the page, not just this balloon's.
+function injectStyleOverridesOnce( fontUrl ) {
     if ( document.getElementById( 'cc-eqneditor-style-overrides' ) ) {
         return;
     }
     const style = document.createElement( 'style' );
     style.id = 'cc-eqneditor-style-overrides';
     style.textContent =
+        `@font-face { font-family: "Latin Modern Math"; font-display: swap; ` +
+            `src: local("Latin Modern Math"), url("${ fontUrl }") format("opentype"); }` +
+        // Undo host resets (e.g. .cke_reset_all *) inside the toolbar icons and the maths view's MathML.
+        '.CCToolbar svg, .CCToolbar svg * { font: revert-layer !important; }' +
+        '.CCToolbar svg * { width: revert-layer !important; height: revert-layer !important; }' +
+        '.CCToolbar svg g[font-family="fxTeX Toolbar"] { color: #000 !important; }' +
+        '.CCMathView math, .CCMathView math * { font: revert-layer !important; ' +
+            'width: revert-layer !important; height: revert-layer !important; padding: revert-layer !important; ' +
+            'margin: revert-layer !important; text-transform: revert-layer !important; text-align: revert-layer !important; ' +
+            'box-sizing: revert-layer !important; white-space: revert-layer !important; }' +
+        apiMathRules() +
         '.ck-balloon-panel:has(.CCEqnEditor) { width: 850px !important; max-width: 96vw !important; }' +
-        '.ck-eqneditor-form { display: flex !important; flex-direction: column !important; }' +
+        '.ck-eqneditor-form { display: flex !important; flex-direction: column !important; padding: 12px 14px !important; }' +
         '.CCEqnEditor { display: flex !important; flex-direction: column !important; ' +
             'height: 480px !important; flex: 1 1 auto !important; }' +
         '.CCEqnEditor .CCEditorBar { flex: 0 0 auto; }' +
+        // A flex column's children stretch to the container's full width by default - the
+        // toolbar's own "fit" pass (EqEditor's Toolbar.link, run once at construction) measures
+        // whatever width it is given and unwraps each button group into as many columns as
+        // that width allows. Left stretched to the balloon's 850px, that is well past the
+        // toolbar's natural width (~780px on the reference page, which is never stretched) -
+        // so every group unwraps wider and flatter than it was designed to, reading as sparse,
+        // undersized icons in a mostly empty row instead of the tighter reference layout.
+        // flex-start plus width:auto (both needed - a flex-start item with no width of its own
+        // still stretches otherwise) leaves it free to size to its own fitted content instead.
+        '.CCEqnEditor [id^="cc-eqn-toolbar-"] { align-self: flex-start; width: auto; }' +
         '.CCEqnEditor .CCMathViewHost { ' +
             'flex: 1 1 auto; min-height: 0; display: flex; align-items: center; ' +
             'justify-content: center; overflow: auto; }' +
@@ -126,11 +170,54 @@ function injectStyleOverridesOnce() {
         '.CCEqnEditor .CCLatexInput { flex: 1 1 auto; min-height: 0; overflow: auto; }' +
         '.CCEqnEditor[data-latex="off"] .CCLatexInput { display: none !important; }' +
         '.CCEqnEditor .CCEqnOutput-hidden { display: none !important; }' +
-        '.ck-eqneditor-form .CCBottomBar { flex: 0 0 auto; display: flex; align-items: center; ' +
-            'gap: 14px; padding-top: 10px; margin-top: 8px; border-top: 1px solid #e2e8f0; }' +
-        '.ck-eqneditor-form .CCBottomBar select { font-size: 13px; padding: 4px 6px; }' +
-        '.ck-eqneditor-form .CCBottomBar-actions { margin-left: auto; display: flex; gap: 6px; }';
+        // The bottom bar: toggles left, Insert-as and the dialog's buttons right, one type size. All !important - host dialog resets otherwise restyle it.
+        '.cc-eqn-bar { display: flex !important; align-items: center !important; gap: 16px !important; flex: 0 0 auto !important; ' +
+            'margin: 8px 0 0 !important; padding: 10px 0 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; ' +
+            'background: none !important; font: 13px/1.3 system-ui, -apple-system, "Segoe UI", Arial, sans-serif !important; color: #1c2530 !important; }' +
+        '.cc-eqn-bar-right { display: flex !important; align-items: center !important; gap: 8px !important; margin: 0 0 0 auto !important; padding: 0 !important; }' +
+        '.cc-eqn-bar .cc-switch { display: inline-flex !important; align-items: center !important; gap: 6px !important; margin: 0 !important; ' +
+            'padding: 0 !important; font: inherit !important; color: #54647c !important; cursor: pointer !important; user-select: none !important; white-space: nowrap !important; }' +
+        '.cc-eqn-bar .cc-switch input { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; ' +
+            'padding: 0 !important; border: 0 !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; opacity: 0 !important; }' +
+        '.cc-eqn-bar .cc-switch-track { position: relative !important; display: inline-block !important; flex: 0 0 auto !important; width: 28px !important; ' +
+            'height: 16px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 8px !important; ' +
+            'background: #ccc !important; transition: background .2s !important; }' +
+        '.cc-eqn-bar .cc-switch-knob { position: absolute !important; display: block !important; top: 2px !important; left: 2px !important; ' +
+            'width: 12px !important; height: 12px !important; margin: 0 !important; border-radius: 50% !important; background: #fff !important; transition: left .2s !important; }' +
+        '.cc-eqn-bar .cc-switch input:checked + .cc-switch-track { background: #4caf50 !important; }' +
+        '.cc-eqn-bar .cc-switch input:checked + .cc-switch-track .cc-switch-knob { left: 14px !important; }' +
+        '.cc-eqn-bar .cc-switch input:focus-visible + .cc-switch-track { outline: 2px solid #003794 !important; outline-offset: 2px !important; }' +
+        '.cc-eqn-bar .cc-switch input:disabled ~ * { opacity: .5 !important; cursor: default !important; }' +
+        '.cc-eqn-bar .cc-switch-label { font: inherit !important; color: inherit !important; }' +
+        '.cc-eqn-bar .cc-switch input:checked ~ .cc-switch-label { color: #003794 !important; font-weight: 600 !important; }' +
+        '.cc-eqn-bar .cc-eqn-select { width: auto !important; height: 30px !important; margin: 0 !important; padding: 0 8px !important; ' +
+            'border: 1px solid #cbd5e0 !important; border-radius: 4px !important; background: #fff !important; font: inherit !important; color: #1c2530 !important; cursor: pointer !important; }' +
+        '.cc-eqn-bar .cc-eqn-btn { display: inline-flex !important; align-items: center !important; height: 30px !important; margin: 0 !important; ' +
+            'padding: 0 16px !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; background: #fff !important; ' +
+            'font: inherit !important; color: #1c2530 !important; cursor: pointer !important; box-shadow: none !important; }' +
+        '.cc-eqn-bar .cc-eqn-btn * { font: inherit !important; color: inherit !important; }' +
+        '.cc-eqn-bar .cc-eqn-btn.cc-eqn-primary { background: #2c7a4b !important; border-color: #2c7a4b !important; color: #fff !important; }' +
+        // eqneditor.css caps this at min(760px, 92vw), which left it hard against the left of the 850px balloon.
+        '.ck-eqneditor-form .CCEqnEditor { width: auto !important; align-self: stretch !important; }';
     document.head.appendChild( style );
+}
+
+// Re-asserts the API's own .CCMathView/.fxtex rules, which host resets and revert-layer override.
+function apiMathRules() {
+    let out = '';
+    for ( const sheet of document.styleSheets ) {
+        let rules;
+        try { rules = sheet.cssRules; } catch ( e ) { continue; }
+        for ( const r of rules ) {
+            if ( !r.selectorText || !/(^|,)\s*\.(fxtex|CCMathView)\b/.test( r.selectorText ) ) continue;
+            let decls = '';
+            for ( const p of r.style ) {
+                decls += `${ p }:${ r.style.getPropertyValue( p ) } !important;`;
+            }
+            if ( decls ) out += r.selectorText.split( ',' ).map( s => ( /^\.CCMathView\b/.test( s.trim() ) ? s.trim() : `.CCMathView ${ s.trim() }` ) ).join( ',' ) + `{${ decls }}`;
+        }
+    }
+    return out;
 }
 
 /* -------------------------------------------------------------------------------------------
@@ -179,10 +266,12 @@ class Eqneditor5 extends Plugin {
         const host = config.server || config.Server || DEFAULT_EDITOR_HOST;
 
         this._renderUrl = config.renderUrl || DEFAULT_RENDER_URL;
+        this._licence = config.licence || '';
         this._ids = makeIds( ++instanceCount );
 
         const scriptUrl = config.scriptUrl || `https://${ host }/eqneditor.api.min.js`;
         const cssUrl = config.cssUrl || `https://${ host }/eqneditor.css`;
+        this._cssUrl = cssUrl;
         // The MathML the editor produces needs a handful of rules browsers' own MathML does
         // not provide - see fxtex.css's own header. Loaded unconditionally, since the "Insert
         // as" choice lives in the panel now rather than being fixed at configuration time.
@@ -251,8 +340,8 @@ class Eqneditor5 extends Plugin {
     _initEqnEditor( locale, inp = '' ) {
         this._showUI( locale );
 
-        this._apiReady.then( () => {
-            injectStyleOverridesOnce();
+        this._apiReady.then( () => ensureInit( this._licence ) ).then( () => {
+            injectStyleOverridesOnce( this._cssUrl.slice( 0, this._cssUrl.lastIndexOf( '/' ) + 1 ) + 'prototypes/latinmodern-math.otf' );
 
             if ( !this.editorReady ) {
                 this._mount();
@@ -285,7 +374,7 @@ class Eqneditor5 extends Plugin {
             .addOutput( this.output )
             .addHistoryMenu( new EqEditor.History( ids.history ) );
 
-        this.toolbar = EqEditor.Toolbar.link( ids.toolbar, 'default', 1.4 ).addTextArea( this.textarea );
+        this.toolbar = EqEditor.Toolbar.link( ids.toolbar ).addTextArea( this.textarea );
 
         // MathView arrived in the 5.x API. Guard rather than require it, so a site pinned to
         // an older bundle still gets the markup editor instead of a broken panel.
@@ -576,10 +665,10 @@ class EqnEditorView extends View {
     constructor( locale, ids ) {
         super( locale );
 
-        this.saveButtonView = this._createButton( 'Ok', IconCheck, 'ck-button-save' );
+        this.saveButtonView = this._createButton( 'OK', 'ck-button-save cc-eqn-btn cc-eqn-primary' );
         this.saveButtonView.type = 'submit';
 
-        this.cancelButtonView = this._createButton( 'Cancel', IconCancel, 'ck-button-cancel' );
+        this.cancelButtonView = this._createButton( 'Cancel', 'ck-button-cancel cc-eqn-btn' );
         this.cancelButtonView.delegate( 'execute' ).to( this, 'cancel' );
 
         // Checkboxes styled as switches, matching the auto-brackets switch the History menu
@@ -632,7 +721,7 @@ class EqnEditorView extends View {
                         { tag: 'img', attributes: { id: ids.output, class: 'CCEqnOutput-hidden', alt: '' } },
                         {
                             tag: 'div',
-                            attributes: { class: 'CCBottomBar' },
+                            attributes: { class: 'CCBottomBar cc-eqn-bar' },
                             children: [
                                 {
                                     tag: 'label',
@@ -665,17 +754,20 @@ class EqnEditorView extends View {
                                     ]
                                 },
                                 {
-                                    tag: 'select',
-                                    attributes: { class: 'cc-insert-mode', title: 'How to insert the equation' },
-                                    children: [
-                                        { tag: 'option', attributes: { value: 'mathml', selected: 'selected' }, children: [ 'Insert as MathML' ] },
-                                        { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert as image (SVG)' ] }
-                                    ]
-                                },
-                                {
                                     tag: 'div',
-                                    attributes: { class: 'CCBottomBar-actions' },
-                                    children: [ this.cancelButtonView, this.saveButtonView ]
+                                    attributes: { class: 'cc-eqn-bar-right' },
+                                    children: [
+                                        {
+                                            tag: 'select',
+                                            attributes: { class: 'cc-insert-mode cc-eqn-select', title: 'How to insert the equation' },
+                                            children: [
+                                                { tag: 'option', attributes: { value: 'mathml', selected: 'selected' }, children: [ 'Insert as MathML' ] },
+                                                { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert as image (SVG)' ] }
+                                            ]
+                                        },
+                                        this.cancelButtonView,
+                                        this.saveButtonView
+                                    ]
                                 }
                             ]
                         }
@@ -685,9 +777,9 @@ class EqnEditorView extends View {
         } );
     }
 
-    _createButton( label, icon, className ) {
+    _createButton( label, className ) {
         const button = new ButtonView();
-        button.set( { label, icon, tooltip: true, class: className } );
+        button.set( { label, withText: true, class: className } );
         return button;
     }
 
