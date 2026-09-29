@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!--
+  CKEditor 5 with the CodeCogs Equation Editor plugin (@codecogs/eqneditor-ckeditor5, in
+  ../plugin). CKEditor 5 has to be bundled - its GPL licence key only works with the npm build -
+  so src/demo.js is built into dist/ with `npm install && npm run build:site` in this folder.
+  Replace the licence with your own fxTeX Pro licence key (fx_pk_...), from editor.codecogs.com.
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CodeCogs Equation Editor - CKEditor 5 example</title>
+
+    <link rel="stylesheet" href="./dist/ckeditor5.css">
+    <script type="module" src="./dist/eqneditor-ckeditor5-demo.js"></script>
+
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+               max-width: 900px; margin: 0 auto; padding: 24px; color: #1c2530; }
+        p.hint { color: #52606d; font-size: 14px; }
+        .ck-editor__editable { min-height: 260px; }
+    </style>
+</head>
+<body>
+    <h1>CodeCogs Equation Editor in CKEditor 5</h1>
+    <p class="hint">
+        Press the <strong>fx</strong> button on the toolbar to insert an equation, or
+        double-click the equation below to edit it.
+    </p>
+
+    <div id="editor">
+        <p>Sample text and an equation:</p>
+        <p><img src="https://latex.codecogs.com/svg.image?\sum_{i=0}^{n}a_i^2&plus;b"
+                alt="\sum_{i=0}^{n}a_i^2+b"></p>
+        <p>Double-click the equation above to edit it.</p>
+    </div>
+
+    <script type="module">
+        // The bundle is a module too, so it has run by the time this does.
+        CodeCogsCKEditorDemo.create( '#editor', {
+            server: '{{EQN_SERVER}}',
+            licence: '{{FXTEXPRO_KEY}}'
+        } );
+    </script>
+</body>
+</html>

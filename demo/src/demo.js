@@ -26,7 +26,8 @@ import { eqnEditor5 } from '@codecogs/eqneditor-ckeditor5';
  * Creates the demo editor.
  *
  * @param {string} selector  CSS selector for the element to turn into an editor.
- * @param {object} options   { scriptUrl, cssUrl, view } - passed through to the plugin.
+ * @param {object} options   { server, licence, scriptUrl, cssUrl, view, insertAs } - passed through
+ *                            to the plugin.
  */
 export function createDemoEditor( selector, options = {} ) {
     return ClassicEditor.create( document.querySelector( selector ), {
@@ -57,6 +58,8 @@ export function createDemoEditor( selector, options = {} ) {
 
         eqnEditor: {
             view: options.view || 'both',
+            server: options.server,
+            licence: options.licence,
             scriptUrl: options.scriptUrl,
             cssUrl: options.cssUrl,
             // 'url' (default), 'latex' or 'mathml'.
