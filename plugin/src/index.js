@@ -85,7 +85,7 @@ function loadScriptOnce( url ) {
 
 // EqEditor.init() switches the converter every TextArea/MathView/Toolbar construction takes on
 // to fxTeX Pro - skip it and they keep the placeholder converter for their whole lifetime, even
-// once eqneditor.api.min.js itself has loaded. Called once per page; an empty licence is the
+// once fxeditor.api.min.js itself has loaded. Called once per page; an empty licence is the
 // normal, expected state until a real one is configured.
 let initPromise = null;
 
@@ -111,19 +111,19 @@ function loadCssOnce( url ) {
     document.head.appendChild( link );
 }
 
-// Gaps in the shared eqneditor.css (loaded separately, asynchronously, from the configured
+// Gaps in the shared fxeditor.css (loaded separately, asynchronously, from the configured
 // host) this panel needs but can't assume it will get:
 //  - editor.codecogs.com, the old default host and still configurable, serves an older stylesheet that predates
 //    the CCEqnEditor/CCMathViewHost/CCLatexInput class names entirely (only a local dev mirror
 //    does not have this gap), so the LaTeX/maths mutual-exclusion below is written defensively
-//    rather than left to eqneditor.css;
+//    rather than left to fxeditor.css;
 //  - this is a balloon, not a dialog, so by default it sizes to fit its content - CKEditor's
 //    own .ck-balloon-panel has no opinion on how big an 850px-wide, mostly-empty maths view
 //    should be, so this gives it one;
 //  - there is no rendered-equation preview and no LaTeX box visible by default (see
 //    EqnEditorView's template), so the maths view needs to fill the space between the toolbar
 //    and the bottom bar itself.
-// Injected once, since it would otherwise race eqneditor.css over which rule wins.
+// Injected once, since it would otherwise race fxeditor.css over which rule wins.
 // The API's own injected @font-face for "Latin Modern Math" only carries
 // local("Latin Modern Math") - no url() fallback - so it silently falls back to a generic
 // serif unless that exact font happens to be installed. A later @font-face for the same
@@ -200,7 +200,7 @@ function injectStyleOverridesOnce( fontUrl ) {
             'font: inherit !important; color: #1c2530 !important; cursor: pointer !important; box-shadow: none !important; }' +
         '.cc-eqn-bar .cc-eqn-btn * { font: inherit !important; color: inherit !important; }' +
         '.cc-eqn-bar .cc-eqn-btn.cc-eqn-primary { background: #2c7a4b !important; border-color: #2c7a4b !important; color: #fff !important; }' +
-        // eqneditor.css caps this at min(760px, 92vw), which left it hard against the left of the 850px balloon.
+        // fxeditor.css caps this at min(760px, 92vw), which left it hard against the left of the 850px balloon.
         '.ck-eqneditor-form .CCEqnEditor { width: auto !important; align-self: stretch !important; }';
     document.head.appendChild( style );
 }
@@ -313,7 +313,7 @@ function apiMathRules() {
  * this plugin hard-coded 'toolbar', 'latexInput', 'output' and 'history'. Those are ordinary
  * words: a host page very often owns an element called #toolbar or #output already, and two
  * CKEditor instances on one page always collided with each other. Each plugin instance now
- * gets its own suffix, and the styling comes from classes (see eqneditor.css) rather than
+ * gets its own suffix, and the styling comes from classes (see fxeditor.css) rather than
  * from the ids, so nothing depends on the names any more.
  */
 let instanceCount = 0;
@@ -358,8 +358,8 @@ class Eqneditor5 extends Plugin {
         this._design = config.design || {};
         this._ids = makeIds( ++instanceCount );
 
-        const scriptUrl = config.scriptUrl || `${ origin }/eqneditor.api.min.js`;
-        const cssUrl = config.cssUrl || `${ origin }/eqneditor.css`;
+        const scriptUrl = config.scriptUrl || `${ origin }/fxeditor.api.min.js`;
+        const cssUrl = config.cssUrl || `${ origin }/fxeditor.css`;
         this._cssUrl = cssUrl;
         // The MathML the editor produces needs a handful of rules browsers' own MathML does
         // not provide - see fxtex.css's own header. Loaded unconditionally, since the "Insert
