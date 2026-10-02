@@ -10,7 +10,7 @@
  *       licenseKey: 'GPL',
  *       plugins: [ Essentials, Paragraph, Image, eqnEditor5 ],
  *       toolbar: [ 'undo', 'redo', '|', 'EqnEditor5' ],
- *       eqnEditor: { server: 'fxeditor.codecogs.com' }
+ *       eqnEditor: { server: 'fxtex.codecogs.com' }
  *   } );
  *
  * The dialog is maths-view only: no LaTeX markup and no rendered-equation preview are visible
@@ -28,10 +28,10 @@ import {
  * Defaults
  * ---------------------------------------------------------------------------------------- */
 
-// Where the editor's own code is served from. fxeditor.codecogs.com serves the current API bundle
-// (fxTeX Pro, the MathML view); editor.codecogs.com and latex.codecogs.com still answer but
-// serve older builds, so neither is the default any more.
-const DEFAULT_EDITOR_HOST = 'fxeditor.codecogs.com';
+// Where the editor's own code is served from: fxtex.codecogs.com, which serves the current API
+// bundle, its stylesheet and its feature bundles beside it, and fxTeX Pro. editor.codecogs.com and
+// latex.codecogs.com still answer but serve older builds, so neither is the default any more.
+const DEFAULT_EDITOR_HOST = 'fxtex.codecogs.com';
 
 // Where SVG equations are rendered. Separate from the host above because a customer running
 // their own rendering service still wants the stock editor code.
@@ -137,7 +137,7 @@ function injectStyleOverridesOnce( fontUrl ) {
     style.id = 'cc-eqneditor-style-overrides';
     style.textContent =
         `@font-face { font-family: "Latin Modern Math"; font-display: swap; ` +
-            `src: local("Latin Modern Math"), url("${ fontUrl }") format("opentype"); }` +
+            `src: local("Latin Modern Math"), url("${ fontUrl.replace( /prototypes\/latinmodern-math\.otf$/, 'fonts/LatinModernMath-Regular.woff2' ) }") format("woff2"), url("${ fontUrl }") format("opentype"); }` +
         // Undo host resets (e.g. .cke_reset_all *) inside the toolbar icons and the maths view's MathML.
         '.CCToolbar svg:has(g[font-family]), .CCToolbar svg:has(g[font-family]) * { font: revert-layer !important; }' +
         // Older API builds draw the icons as plain <text>, fonted by the API's own .cc_panel rule instead.
