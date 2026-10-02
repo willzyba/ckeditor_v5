@@ -4,13 +4,13 @@
  * Usage:
  *
  *   import { ClassicEditor, Essentials, Paragraph, Image } from 'ckeditor5';
- *   import { eqnEditor5 } from '@codecogs/eqneditor-ckeditor5';
+ *   import { eqnEditor5 } from '@codecogs/fxeditor-ckeditor5';
  *
  *   ClassicEditor.create( document.querySelector( '#editor' ), {
  *       licenseKey: 'GPL',
  *       plugins: [ Essentials, Paragraph, Image, eqnEditor5 ],
  *       toolbar: [ 'undo', 'redo', '|', 'EqnEditor5' ],
- *       eqnEditor: { server: 'editor.codecogs.com' }
+ *       eqnEditor: { server: 'fxeditor.codecogs.com' }
  *   } );
  *
  * The dialog is maths-view only: no LaTeX markup and no rendered-equation preview are visible
@@ -28,10 +28,10 @@ import {
  * Defaults
  * ---------------------------------------------------------------------------------------- */
 
-// Where the editor's own code is served from. editor.codecogs.com is the canonical home of the
-// API bundle and is the build that carries the MathML view; latex.codecogs.com also answers on
-// /js/eqneditor.api.min.js but serves an older build, so it is not the default any more.
-const DEFAULT_EDITOR_HOST = 'editor.codecogs.com';
+// Where the editor's own code is served from. fxeditor.codecogs.com serves the current API bundle
+// (fxTeX Pro, the MathML view); editor.codecogs.com and latex.codecogs.com still answer but
+// serve older builds, so neither is the default any more.
+const DEFAULT_EDITOR_HOST = 'fxeditor.codecogs.com';
 
 // Where SVG equations are rendered. Separate from the host above because a customer running
 // their own rendering service still wants the stock editor code.
@@ -113,7 +113,7 @@ function loadCssOnce( url ) {
 
 // Gaps in the shared eqneditor.css (loaded separately, asynchronously, from the configured
 // host) this panel needs but can't assume it will get:
-//  - editor.codecogs.com, the default host, currently serves an older stylesheet that predates
+//  - editor.codecogs.com, the old default host and still configurable, serves an older stylesheet that predates
 //    the CCEqnEditor/CCMathViewHost/CCLatexInput class names entirely (only a local dev mirror
 //    does not have this gap), so the LaTeX/maths mutual-exclusion below is written defensively
 //    rather than left to eqneditor.css;
@@ -206,6 +206,41 @@ function injectStyleOverridesOnce( fontUrl ) {
 }
 
 // Re-asserts the API's own .CCMathView/.fxtex rules, which host resets and revert-layer override.
+// The `design` option (see the README): how the editor looks, set by the site rather than the
+// author. The toolbar's rows and scale go to Toolbar.link() itself; everything else is applied
+// here, once the editor is mounted - CSS scoped to this editor's root, then the starting state of
+// the LaTeX toggle and the "Insert as" menu.
+var designCount = 0;
+function applyDesign( root, design, latexToggle, insertSelect ) {
+    if ( !root || !design ) return;
+    if ( !root.id ) root.id = 'cc-eqn-design-' + ( ++designCount );
+    var sel = '#' + root.id, css = '';
+    var colour = String( design.colour || '' );
+    if ( /^(#[0-9a-f]{3,8}|[a-z]+)$/i.test( colour ) ) {
+        css += sel + ' { --cc-accent: ' + colour + ';' +
+            ' --cc-accent-soft: color-mix(in srgb, ' + colour + ' 11%, #fff);' +
+            ' --cc-accent-soft-ring: color-mix(in srgb, ' + colour + ' 28%, #fff);' +
+            ' --cc-accent-mid: color-mix(in srgb, ' + colour + ' 22%, #fff);' +
+            ' --cc-accent-mid-ring: color-mix(in srgb, ' + colour + ' 43%, #fff); }';
+    }
+    if ( Number( design.mathSize ) > 0 ) css += sel + ' .CCMathView { font-size: ' + Number( design.mathSize ) + 'px !important; }';
+    if ( Number( design.latexSize ) > 0 ) css += sel + ' .CCLatexInput { font-size: ' + Number( design.latexSize ) + 'px !important; }';
+    if ( design.toolbar === false ) css += sel + ' .CCToolbar { display: none !important; }';
+    if ( design.history === false ) css += sel + ' .CCEditorBar { display: none !important; }';
+    if ( css ) {
+        var style = document.createElement( 'style' );
+        style.textContent = css;
+        root.appendChild( style );
+    }
+    if ( insertSelect && design.insertAs && insertSelect.querySelector( 'option[value="' + design.insertAs + '"]' ) ) {
+        insertSelect.value = design.insertAs;
+    }
+    if ( latexToggle && design.latex && !latexToggle.checked && !latexToggle.disabled ) {
+        latexToggle.checked = true;
+        latexToggle.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+    }
+}
+
 function apiMathRules() {
     let out = '';
     for ( const sheet of document.styleSheets ) {
@@ -272,6 +307,7 @@ class Eqneditor5 extends Plugin {
 
         this._renderUrl = config.renderUrl || DEFAULT_RENDER_URL;
         this._licence = config.licence || '';
+        this._design = config.design || {};
         this._ids = makeIds( ++instanceCount );
 
         const scriptUrl = config.scriptUrl || `${ origin }/eqneditor.api.min.js`;
@@ -379,7 +415,7 @@ class Eqneditor5 extends Plugin {
             .addOutput( this.output )
             .addHistoryMenu( new EqEditor.History( ids.history ) );
 
-        this.toolbar = EqEditor.Toolbar.link( ids.toolbar ).addTextArea( this.textarea );
+        this.toolbar = EqEditor.Toolbar.link( ids.toolbar, this._design.toolbar || 'default', this._design.toolbarScale || 1 ).addTextArea( this.textarea );
 
         // MathView arrived in the 5.x API. Guard rather than require it, so a site pinned to
         // an older bundle still gets the markup editor instead of a broken panel.
@@ -402,6 +438,9 @@ class Eqneditor5 extends Plugin {
                 nodes[ i ].style.padding = 'revert';
             }
         }
+
+        applyDesign( document.getElementById( ids.root ), this._design,
+            this.eqnView.latexCheckbox, this.eqnView.insertModeSelect );
     }
 
     /* --- writing the equation into the document ------------------------------------------ */

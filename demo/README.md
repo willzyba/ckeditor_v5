@@ -1,27 +1,19 @@
 # CKEditor 5 demo bundle
 
-This builds the editor shown on
-<https://editor.codecogs.com/docs/2-CK_Editor_v5.php>.
+This builds the CKEditor 5 that `example.html` loads - the live example, the customiser preview
+and the download on <https://fxplugins.codecogs.com/docs/ckeditor5.html>.
 
-It exists because CKEditor 5's GPL licence key is only accepted on the **npm**
-distribution channel. Loading their prebuilt `ckeditor5.js` from a CDN - or
-copying that same file out of the package and serving it ourselves - is treated
-as the *cloud* channel, and the editor refuses to start with
-`license-key-invalid-distribution-channel`. Bundling from npm sources with an
-ordinary bundler is the supported way to use the GPL key, so that is what this
-does.
-
-It also pins the versions the documentation page's instructions quote, so the
-demo and the instructions cannot drift apart.
+It exists because CKEditor 5's GPL licence key is only accepted on the **npm** distribution
+channel. Loading their prebuilt `ckeditor5.js` from a CDN - or copying that same file out of the
+package and serving it ourselves - is treated as the *cloud* channel, and the editor refuses to
+start with `license-key-invalid-distribution-channel`. Bundling from npm sources with an ordinary
+bundler is the supported way to use the GPL key, so that is what this does.
 
     npm install
     npm run build
 
-`npm run build` writes two files straight into the website's public directory:
+`npm run build` writes `dist/eqneditor-ckeditor5-demo.js` and `dist/ckeditor5.css` (not
+committed; the Dockerfile runs the same build).
 
-  * `public/plugins/ckeditor5/eqneditor-ckeditor5-demo.js`
-  * `public/plugins/ckeditor5/ckeditor5.css`
-
-The plugin itself is taken from `../plugin` via a `file:`
-dependency, so a change there only needs a rebuild here - no publish to npm in
-between.
+The plugin itself, `@codecogs/fxeditor-ckeditor5`, is taken from `../plugin` via a `file:`
+dependency, so a change there only needs a rebuild here - no publish to npm in between.

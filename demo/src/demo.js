@@ -20,13 +20,13 @@ import {
     Table, TableToolbar, PasteFromOffice, Autoformat, BlockQuote,
 } from 'ckeditor5';
 
-import { eqnEditor5 } from '@codecogs/eqneditor-ckeditor5';
+import { eqnEditor5 } from '@codecogs/fxeditor-ckeditor5';
 
 /**
  * Creates the demo editor.
  *
  * @param {string} selector  CSS selector for the element to turn into an editor.
- * @param {object} options   { server, licence, scriptUrl, cssUrl, view, insertAs } - passed through
+ * @param {object} options   { server, licence, design, scriptUrl, cssUrl, view, insertAs } - passed through
  *                            to the plugin.
  */
 export function createDemoEditor( selector, options = {} ) {
@@ -60,6 +60,7 @@ export function createDemoEditor( selector, options = {} ) {
             view: options.view || 'both',
             server: options.server,
             licence: options.licence,
+            design: options.design,
             scriptUrl: options.scriptUrl,
             cssUrl: options.cssUrl,
             // 'url' (default), 'latex' or 'mathml'.

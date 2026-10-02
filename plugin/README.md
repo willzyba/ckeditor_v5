@@ -14,7 +14,7 @@ Edit your CKEditor 5 initialisation script, so it resembles the following:
 
     import Image from '@ckeditor/ckeditor5-image/src/image';
     import MediaEmbed from '@ckeditor/ckeditor5-media-embed/src/mediaembed';
-    import EqnEditor5 from '@codecogs/eqneditor-ckeditor5/src/eqneditor5';
+    import EqnEditor5 from '@codecogs/fxeditor-ckeditor5/src/eqneditor5';
 
     ...
 
