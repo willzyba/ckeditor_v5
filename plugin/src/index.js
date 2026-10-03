@@ -151,20 +151,16 @@ function injectStyleOverridesOnce( fontUrl ) {
             'box-sizing: revert-layer !important; white-space: revert-layer !important; }' +
         apiMathRules() +
         '.ck-balloon-panel:has(.CCEqnEditor) { width: 850px !important; max-width: 96vw !important; }' +
-        '.ck-eqneditor-form { display: flex !important; flex-direction: column !important; padding: 12px 14px !important; }' +
+        // nowrap: CKEditor's own form styles wrap, and a wrapping flex column is as wide as its widest
+        // item - the toolbar's whole row - so the editor ran past a narrow balloon (`design.width`).
+        '.ck-eqneditor-form { display: flex !important; flex-direction: column !important; flex-wrap: nowrap !important; padding: 12px 14px !important; }' +
         '.CCEqnEditor { display: flex !important; flex-direction: column !important; ' +
             'height: 480px !important; flex: 1 1 auto !important; }' +
         '.CCEqnEditor .CCEditorBar { flex: 0 0 auto; }' +
-        // A flex column's children stretch to the container's full width by default - the
-        // toolbar's own "fit" pass (EqEditor's Toolbar.link, run once at construction) measures
-        // whatever width it is given and unwraps each button group into as many columns as
-        // that width allows. Left stretched to the balloon's 850px, that is well past the
-        // toolbar's natural width (~780px on the reference page, which is never stretched) -
-        // so every group unwraps wider and flatter than it was designed to, reading as sparse,
-        // undersized icons in a mostly empty row instead of the tighter reference layout.
-        // flex-start plus width:auto (both needed - a flex-start item with no width of its own
-        // still stretches otherwise) leaves it free to size to its own fitted content instead.
-        '.CCEqnEditor [id^="cc-eqn-toolbar-"] { align-self: flex-start; width: auto; }' +
+        // The toolbar as wide as the dialog, no wider: sized to its own content instead (width: auto)
+        // it kept the toolbar's whole row and ran past a narrow dialog (`design.width`); at 100% the
+        // toolbar scrolls.
+        '.CCEqnEditor [id^="cc-eqn-toolbar-"] { align-self: flex-start; width: 100%; }' +
         '.CCEqnEditor .CCMathViewHost { ' +
             'flex: 1 1 auto; min-height: 0; display: flex; align-items: center; ' +
             'justify-content: center; overflow: auto; }' +
@@ -174,7 +170,7 @@ function injectStyleOverridesOnce( fontUrl ) {
         '.CCEqnEditor[data-latex="off"] .CCLatexInput { display: none !important; }' +
         '.CCEqnEditor .CCEqnOutput-hidden { display: none !important; }' +
         // The bottom bar: toggles left, Insert-as and the dialog's buttons right, one type size. All !important - host dialog resets otherwise restyle it.
-        '.cc-eqn-bar { display: flex !important; align-items: center !important; gap: 16px !important; flex: 0 0 auto !important; ' +
+        '.cc-eqn-bar { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 16px !important; flex: 0 0 auto !important; ' +
             'margin: 8px 0 0 !important; padding: 10px 0 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; ' +
             'background: none !important; font: 13px/1.3 system-ui, -apple-system, "Segoe UI", Arial, sans-serif !important; color: #1c2530 !important; }' +
         '.cc-eqn-bar-right { display: flex !important; align-items: center !important; gap: 8px !important; margin: 0 0 0 auto !important; padding: 0 !important; font: inherit !important; color: inherit !important; }' +
@@ -300,12 +296,12 @@ function apiMathRules() {
         let rules;
         try { rules = sheet.cssRules; } catch ( e ) { continue; }
         for ( const r of rules ) {
-            if ( !r.selectorText || !/(^|,)\s*\.(fxtex|CCMathView)\b/.test( r.selectorText ) ) continue;
+            if ( !r.selectorText || !/(^|,)\s*(:where\(\.fxEditor\)\s*)?\.(fxtex|CCMathView)\b/.test( r.selectorText ) ) continue;
             let decls = '';
             for ( const p of r.style ) {
                 decls += `${ p }:${ r.style.getPropertyValue( p ) } !important;`;
             }
-            if ( decls ) out += r.selectorText.split( ',' ).map( s => ( /^\.CCMathView\b/.test( s.trim() ) ? s.trim() : `.CCMathView ${ s.trim() }` ) ).join( ',' ) + `{${ decls }}`;
+            if ( decls ) out += r.selectorText.replace( /:where\(\.fxEditor\)\s*/g, '' ).split( ',' ).map( s => ( /^\.CCMathView\b/.test( s.trim() ) ? s.trim() : `.CCMathView ${ s.trim() }` ) ).join( ',' ) + `{${ decls }}`;
         }
     }
     return out;
@@ -858,8 +854,8 @@ class EqnEditorView extends View {
                                             tag: 'select',
                                             attributes: { class: 'cc-insert-mode cc-eqn-select', title: 'How to insert the equation' },
                                             children: [
-                                                { tag: 'option', attributes: { value: 'mathml', selected: 'selected' }, children: [ 'Insert as MathML' ] },
-                                                { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert as image (SVG)' ] }
+                                                { tag: 'option', attributes: { value: 'mathml', selected: 'selected' }, children: [ 'Insert MathML' ] },
+                                                { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert SVG' ] }
                                             ]
                                         },
                                         this.cancelButtonView,
