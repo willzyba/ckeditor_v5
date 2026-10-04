@@ -479,6 +479,12 @@ class Eqneditor5 extends Plugin {
                 this.eqnView.insertModeSelect.value = mode;
             }
             this.textarea.notifyOutputs();
+
+            // Ready to type into, with its cursor showing - focus otherwise stays on the button
+            // that opened the editor (or in the document, after a double-click).
+            const root = document.getElementById( this._ids.root );
+            const pane = root && root.querySelector( root.getAttribute( 'data-latex' ) === 'on' ? '.CCLatexInput' : '.CCMathView' );
+            if ( pane ) pane.focus( { preventScroll: true } );
         } ).catch( err => {
             console.error( err );
         } );
@@ -526,6 +532,19 @@ class Eqneditor5 extends Plugin {
 
         applyDesign( document.getElementById( ids.root ), this._design,
             this.eqnView.latexCheckbox, this.eqnView.insertModeSelect );
+
+        // The API draws the MathView's caret where the cursor is at that moment, and only redraws
+        // it on an edit or on focus - but the balloon goes on settling after it first opens (its
+        // fonts arrive, the toolbar fits itself to its row) and the equation, centred in its
+        // area, moves out from under the caret. Its focus handler only redraws (it leaves the
+        // cursor where it is), so it is fired again whenever the area changes size while focused.
+        const host = document.getElementById( ids.mathview );
+        const pane = host && host.querySelector( '.CCMathView' );
+        if ( pane && typeof ResizeObserver !== 'undefined' ) {
+            new ResizeObserver( () => {
+                if ( document.activeElement === pane ) pane.dispatchEvent( new FocusEvent( 'focus' ) );
+            } ).observe( host );
+        }
     }
 
     /* --- writing the equation into the document ------------------------------------------ */
@@ -824,7 +843,11 @@ class EqnEditorView extends View {
                     tag: 'div',
                     attributes: {
                         id: ids.root,
-                        class: 'CCEqnEditor',
+                        // Out of CKEditor's own reset (.ck-reset_all, which the balloon carries): its
+                        // `position: static; width: auto; background: none` outranks the API's rules -
+                        // left in, the MathView's drawn caret had no size, colour or place, and there
+                        // was no cursor at all.
+                        class: [ 'CCEqnEditor', 'ck-reset_all-excluded' ],
                         'data-latex': 'off',
                         'data-inline': 'off'
                     },
