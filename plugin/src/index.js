@@ -401,37 +401,66 @@ class Eqneditor5 extends Plugin {
 
         view.addObserver( DoubleClickObserver );
         editor.listenTo( view.document, 'dblclick', ( e, dat ) => {
-            const target = dat.domTarget;
-            if ( !target ) return;
+            const found = this._equationAt( dat.domTarget );
+            if ( !found ) return;
 
-            // An image equation: the LaTeX is recovered from the rendering request that
-            // produced it.
-            if ( target.nodeName.toLowerCase() === 'img' ) {
-                const match = target.src.match( /(gif|svg|png)\.image\?(.*)/ );
-                if ( match ) {
-                    this._editing = target;
-                    this._initEqnEditor( null, decodeEquation( match[ 2 ] ) );
-                }
-                return;
-            }
+            // The browser's own double-click would select a word (or the image widget's label)
+            // as the editor opens.
+            dat.preventDefault();
 
-            // A MathML equation. The converter writes the source LaTeX into the <math> element's
-            // own title attribute, so the equation carries what it was written from and can be
-            // reopened without anyone having to parse MathML back into LaTeX.
-            const math = target.closest && target.closest( 'math[title]' );
-            if ( math ) {
-                const latex = math.getAttribute( 'title' ).trim();
-                if ( latex ) {
-                    this._editing = math;
-                    this._initEqnEditor( null, latex );
-                }
-            }
+            // Remembered, so that OK replaces this equation rather than inserting another beside it
+            // (see the 'submit' listener). Meanwhile the cursor goes just after it: the double-
+            // click's first click has selected an image equation, and a selected image brings up
+            // CKEditor's own image toolbar, which takes the balloon from the equation editor.
+            this._editing = found.element;
+            editor.model.change( writer => writer.setSelection( found.element, 'after' ) );
+            this._initEqnEditor( null, found.latex, found.mode );
         } );
+    }
+
+    /**
+     * The equation a double-click landed in, as { element: its model element, latex, mode: 'mathml' or 'svg' }, or null.
+     * Found from its wrapper rather than the exact element clicked: the click can land anywhere
+     * in the equation's box - on the wrapper's own edges as much as on the <math> or <img>.
+     */
+    _equationAt( target ) {
+        if ( !target || !target.closest ) return null;
+
+        let dom = null, latex = '', mode = '';
+
+        // A MathML equation. The model keeps the LaTeX (see _insertMathML), and the wrapper
+        // carries it as data-cc-latex; the <math> element's own title holds it too.
+        const wrapper = target.closest( '.cc-equation' );
+        if ( wrapper ) {
+            const math = wrapper.querySelector( 'math[title]' );
+            dom = wrapper;
+            mode = 'mathml';
+            latex = wrapper.getAttribute( 'data-cc-latex' ) || ( math && math.getAttribute( 'title' ) ) || '';
+        } else {
+            // An image equation: the LaTeX is recovered from the rendering request that produced it.
+            const widget = target.closest( '.image-inline' );
+            const img = target.nodeName.toLowerCase() === 'img' ? target : widget && widget.querySelector( 'img' );
+            const match = img && img.src.match( /(gif|svg|png)\.image\?(.*)/ );
+            if ( match ) {
+                dom = widget || img;
+                mode = 'svg';
+                latex = decodeEquation( match[ 2 ] );
+            }
+        }
+
+        latex = latex.trim();
+        if ( !dom || !latex ) return null;
+
+        const viewElement = this.editor.editing.view.domConverter.mapDomToView( dom );
+        const element = viewElement && this.editor.editing.mapper.toModelElement( viewElement );
+        return element ? { element, latex, mode } : null;
     }
 
     /* --- opening ------------------------------------------------------------------------ */
 
-    _initEqnEditor( locale, inp = '' ) {
+    // `mode`, for an equation reopened from the document: what it was ('mathml' or 'svg'), so that
+    // it stays that - an image equation edited is still an image.
+    _initEqnEditor( locale, inp = '', mode = '' ) {
         this._showUI( locale );
 
         this._apiReady.then( () => ensureInit( this._licence ) ).then( () => {
@@ -445,6 +474,9 @@ class Eqneditor5 extends Plugin {
             this.textarea.clear();
             if ( inp ) {
                 this.textarea.insert( inp, inp.length );
+            }
+            if ( mode && this.eqnView.insertModeSelect ) {
+                this.eqnView.insertModeSelect.value = mode;
             }
             this.textarea.notifyOutputs();
         } ).catch( err => {
@@ -654,6 +686,11 @@ class Eqneditor5 extends Plugin {
             const latex = this.textarea.getTextArea().textContent.trim();
 
             if ( latex ) {
+                // Reopened from the document: selected, the equation is replaced by the edit.
+                const editing = this._editing;
+                if ( editing && editing.root && editing.root.rootName !== '$graveyard' ) {
+                    this.editor.model.change( writer => writer.setSelection( editing, 'on' ) );
+                }
                 this._insertEquation( latex );
                 this.textarea.pushToHistory();
             }
