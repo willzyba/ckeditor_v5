@@ -1,57 +1,57 @@
-@codecogs/ckeditor5-eqneditor5
-==============================
+# @codecogs/fxeditor-ckeditor5
 
-This package was created by the [ckeditor5-package-generator](https://www.npmjs.com/package/ckeditor5-package-generator) package.
+[fxEditor](https://fxeditor.codecogs.com), CodeCogs' LaTeX equation editor, as a plugin for
+[CKEditor 5](https://ckeditor.com/ckeditor-5/) (v42 or later). Authors build an equation in a
+maths view or as LaTeX, and it goes into the document as MathML or as an image.
 
-## Usage
+Full documentation, a live example and a design tool:
+**[fxplugins.codecogs.com/docs/ckeditor5.html](https://fxplugins.codecogs.com/docs/ckeditor5.html)**
 
-Edit your CKEditor 5 initialisation script, so it resembles the following:
+## Install
 
-    // The main CK editor creator to use
-    import ClassicEditorBase from '@ckeditor/ckeditor5-editor-classic/src/classiceditor';
+```bash
+npm install ckeditor5 @codecogs/fxeditor-ckeditor5
+```
 
-    // Other imports...
+## Use
 
-    import Image from '@ckeditor/ckeditor5-image/src/image';
-    import MediaEmbed from '@ckeditor/ckeditor5-media-embed/src/mediaembed';
-    import EqnEditor5 from '@codecogs/fxeditor-ckeditor5/src/eqneditor5';
+Import it alongside your other CKEditor imports, add it to both `plugins` and `toolbar`, and give
+it your fxEditor licence key. The Image plugins are needed only if equations may be inserted as
+images.
 
-    ...
+```js
+import { ClassicEditor, Essentials, Paragraph, Bold, Italic,
+         Image, ImageInline, ImageToolbar, ImageTextAlternative } from 'ckeditor5';
+import { eqnEditor5 } from '@codecogs/fxeditor-ckeditor5';
+import 'ckeditor5/ckeditor5.css';
 
-    export default class ClassicEditor extends ClassicEditorBase {}
+ClassicEditor.create( document.querySelector( '#editor' ), {
+    licenseKey: 'GPL',                       // CKEditor's own licence
+    plugins: [ Essentials, Paragraph, Bold, Italic,
+               Image, ImageInline, ImageToolbar, ImageTextAlternative,
+               eqnEditor5 ],
+    toolbar: [ 'undo', 'redo', '|', 'bold', 'italic', '|', 'EqnEditor5' ],
+    eqnEditor: {
+        server: 'fxtex.codecogs.com',
+        licence: 'fx_pk_your-key-here',      // fxEditor's licence, from the licence manager
+        design: { colour: '#0f7a4d' }        // optional
+    }
+} );
+```
 
-    // Plugins to include in the build.
-    ClassicEditor.builtinPlugins = [
-      Essentials,
-      Bold,
-      Italic,
-      Heading,
-      Image,          /* Needed by EqnEditor 5 */
-      MediaEmbed,     /* Needed by EqnEditor 5 */
-      EqnEditor5      /* Core of EqnEditor 5 */
-    ];
+That is the whole integration. The equation editor itself is fetched from `fxtex.codecogs.com`
+the first time it is needed, so there is nothing further to bundle and you always get the current
+editor. Double-click an equation in the document to edit it again.
 
-    // Editor configuration.
-    ClassicEditor.defaultConfig = {
-      toolbar: {
-        items: [
-          'EqnEditor5', /* Added fx button for EqnEditor 5 */
-          'heading',
-          '|',
-          'bold',
-          'italic',
-          '|',
-          'undo',
-          'redo'
-        ]
-      },
+## Options (`eqnEditor`)
 
-      language: 'en'
-    };
-      ...
+| Option | |
+|---|---|
+| `server` | Where the equation editor is loaded from: `fxtex.codecogs.com`, or your own fxTeX Server. A bare host means https. |
+| `licence` | Your fxEditor licence key. Without one, equations show why they cannot render. |
+| `design` | How the editor looks - toolbar, colour, sizes, the predictor. Build one with the design tool on the [documentation page](https://fxplugins.codecogs.com/docs/ckeditor5.html#customise). |
+| `renderUrl` | The service that draws equations inserted as images. Defaults to `https://latex.codecogs.com`. |
 
-## License
+## Licence
 
-The `@codecogs/ckeditor5-eqneditor5` package is available under [MIT license](https://opensource.org/licenses/MIT).
-
-However, it is the default license of packages created by the [ckeditor5-package-generator](https://www.npmjs.com/package/ckeditor5-package-generator) package and it can be changed.
+MIT. CKEditor 5 is licensed separately, as is fxEditor - see the documentation.
