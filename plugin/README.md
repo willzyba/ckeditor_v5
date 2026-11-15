@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/willzyba/ckeditor_v5/main/screenshots/icon.png" alt="" width="96" align="right">
+
 # fxEditor for CKEditor 5
 
 `@codecogs/fxeditor-ckeditor5` adds an **fx** button to the toolbar of
@@ -92,7 +94,7 @@ is CKEditor's own; `eqnEditor.licence` is fxEditor's.
 | `licence` | | Your fxEditor licence key. Required. |
 | `design` | | The editor's look: dialog width, height and scale, toolbar panels and size, colour, equation and markup sizes, undo/redo, how the dialog opens. Build one in [Customise and download](https://fxplugins.codecogs.com/docs/ckeditor5.html#customise). |
 | `server` | `'fxtex.codecogs.com'` | Host the equation editor's own code is loaded from. A bare host means https; a full origin is used as it is. |
-| `renderUrl` | `'https://latex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
+| `renderUrl` | `'https://fxtex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
 | `scriptUrl` | from `server` | Full URL of the equation editor bundle, when the default path does not suit. |
 | `cssUrl` | from `server` | Full URL of the equation editor stylesheet. |
 | `mathmlCssUrl` | from `server` | The MathML stylesheet loaded into the editing view. |
