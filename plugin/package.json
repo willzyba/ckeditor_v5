@@ -1,6 +1,6 @@
 {
   "name": "@codecogs/fxeditor-ckeditor5",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "fxEditor, CodeCogs' LaTeX equation editor, as a plugin for CKEditor 5",
   "keywords": [
     "fxeditor",
@@ -15,7 +15,7 @@
     "maths"
   ],
   "homepage": "https://fxplugins.codecogs.com/docs/ckeditor5.html",
-  "author": "CodeCogs",
+  "author": "CodeCogs, Zyba Ltd.",
   "main": "src/index.js",
   "type": "module",
   "license": "MIT",

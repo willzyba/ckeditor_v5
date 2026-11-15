@@ -58,7 +58,7 @@ ClassicEditor.create( document.querySelector( '#editor' ), {
                eqnEditor5 ],
     toolbar: [ 'undo', 'redo', '|', 'bold', 'italic', '|', 'EqnEditor5' ],
     eqnEditor: {
-        licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // fxEditor's licence, from the licence manager
+        licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // fxEditor's licence, from fxeditor.codecogs.com/purchase
         design: { colour: '#0f7a4d' }           // optional
     }
 } );
@@ -80,13 +80,7 @@ view for you; on the page that finally shows your content, add:
 Equations are rendered by fxTeX Pro, which needs a licence key for your domain. Without one,
 equations show the reason they cannot render in place of the maths.
 
-- Get a key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase): paid
-  plans, and a free trial.
-- Teachers and students can have a free individual licence:
-  [fxeditor.codecogs.com/academic](https://fxeditor.codecogs.com/academic).
-- Keys are managed in the licence manager at
-  [fxeditor.codecogs.com/login](https://fxeditor.codecogs.com/login), where you add your domains
-  and copy your key.
+Get your licence key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase).
 
 The key goes in `eqnEditor.licence`. There are two licence keys, for two products: `licenseKey`
 is CKEditor's own; `eqnEditor.licence` is fxEditor's.
@@ -105,5 +99,6 @@ is CKEditor's own; `eqnEditor.licence` is fxEditor's.
 
 ## Licence
 
-MIT - see [LICENSE.md](https://github.com/willzyba/ckeditor_v5/blob/main/plugin/LICENSE.md).
+Copyright (c) 2026 CodeCogs, Zyba Ltd. Released under the MIT licence - see
+[LICENSE.md](https://github.com/willzyba/ckeditor_v5/blob/main/plugin/LICENSE.md).
 CKEditor 5 is CKSource's and is licensed separately. fxEditor needs its own licence key, as above.

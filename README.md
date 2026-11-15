@@ -83,7 +83,7 @@ ClassicEditor.create( document.querySelector( '#editor' ), {
                eqnEditor5 ],
     toolbar: [ 'undo', 'redo', '|', 'bold', 'italic', '|', 'EqnEditor5' ],
     eqnEditor: {
-        licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // fxEditor's licence, from the licence manager
+        licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // fxEditor's licence, from fxeditor.codecogs.com/purchase
         design: { colour: '#0f7a4d' }           // optional
     }
 } );
@@ -123,13 +123,7 @@ publishes the demo.
 Equations are rendered by fxTeX Pro, which needs a licence key for your domain. Without one,
 equations show the reason they cannot render in place of the maths.
 
-- Get a key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase): paid
-  plans, and a free trial.
-- Teachers and students can have a free individual licence:
-  [fxeditor.codecogs.com/academic](https://fxeditor.codecogs.com/academic).
-- Keys are managed in the licence manager at
-  [fxeditor.codecogs.com/login](https://fxeditor.codecogs.com/login), where you add your domains
-  and copy your key.
+Get your licence key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase).
 
 The key goes in `eqnEditor.licence`. Note there are two licence keys here, for two products:
 `licenseKey` is CKEditor's own; `eqnEditor.licence` is fxEditor's.
@@ -153,7 +147,11 @@ chooses MathML or an image in the balloon, and shows or hides the LaTeX with its
 
 ## Licence
 
-The plugin is released under the MIT licence - see [`plugin/LICENSE.md`](plugin/LICENSE.md).
+Copyright (c) 2026 CodeCogs, Zyba Ltd.
+
+The plugin and the demo are released under the MIT licence - see
+[`LICENSE`](https://github.com/willzyba/ckeditor_v5/blob/main/LICENSE) (and, for the npm package,
+[`plugin/LICENSE.md`](https://github.com/willzyba/ckeditor_v5/blob/main/plugin/LICENSE.md)).
 
 CKEditor 5 is CKSource's and is licensed separately (the examples use its GPL licence key,
 `'GPL'`). fxEditor and fxTeX Pro need their own licence key, as above.
