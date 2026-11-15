@@ -66,7 +66,7 @@ ClassicEditor.create( document.querySelector( '#editor' ), {
 } );
 ```
 
-That is the whole integration. The equation editor itself is fetched from `fxtex.codecogs.com`
+That is the whole integration. The equation editor itself is fetched from `https://fxtex.codecogs.com`
 the first time it is needed, so there is nothing further to bundle and you always get the current
 editor. The plugin teaches CKEditor to keep MathML, so there is no schema for you to maintain.
 
