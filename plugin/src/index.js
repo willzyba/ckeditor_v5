@@ -10,7 +10,7 @@
  *       licenseKey: 'GPL',
  *       plugins: [ Essentials, Paragraph, Image, eqnEditor5 ],
  *       toolbar: [ 'undo', 'redo', '|', 'EqnEditor5' ],
- *       eqnEditor: { server: 'fxtex.codecogs.com' }
+ *       eqnEditor: { server: 'https://fxtex.codecogs.com' }
  *   } );
  *
  * The dialog is maths-view only: no LaTeX markup and no rendered-equation preview are visible
@@ -31,7 +31,7 @@ import {
 // Where the editor's own code is served from: fxtex.codecogs.com, which serves the current API
 // bundle, its stylesheet and its feature bundles beside it, and fxTeX Pro. editor.codecogs.com and
 // latex.codecogs.com still answer but serve older builds, so neither is the default any more.
-const DEFAULT_EDITOR_HOST = 'fxtex.codecogs.com';
+const DEFAULT_EDITOR_HOST = 'https://fxtex.codecogs.com';
 
 // Where SVG equations are rendered. Separate from the host above because a customer running
 // their own rendering service still wants the stock editor code.
