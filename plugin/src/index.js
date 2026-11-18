@@ -101,6 +101,21 @@ function ensureInit( licence ) {
     return initPromise;
 }
 
+// fxtex.css styles inserted MathML. fxTeX Pro (which EqEditor.init() loads when the panel
+// first opens) puts the same rules on the page itself as <style id="fxtex-style">, unless an
+// element with that id is already there - so this adds the file under that id, and only when
+// nothing has claimed it yet: the page never carries two copies.
+function loadFxtexStyleOnce( url ) {
+    if ( document.getElementById( 'fxtex-style' ) || document.querySelector( `link[href="${ url }"]` ) ) {
+        return;
+    }
+    const link = document.createElement( 'link' );
+    link.id = 'fxtex-style';
+    link.rel = 'stylesheet';
+    link.href = url;
+    document.head.appendChild( link );
+}
+
 function loadCssOnce( url ) {
     if ( document.querySelector( `link[href="${ url }"]` ) ) {
         return;
@@ -795,12 +810,14 @@ class Eqneditor5 extends Plugin {
         const cssUrl = config.cssUrl || `${ origin }/fxeditor.css`;
         this._cssUrl = cssUrl;
         // The MathML the editor produces needs a handful of rules browsers' own MathML does
-        // not provide - see fxtex.css's own header. Loaded unconditionally, since the "Insert
-        // as" choice lives in the panel now rather than being fixed at configuration time.
+        // not provide - see fxtex.css's own header. fxTeX Pro brings them when the panel first
+        // opens, but CKEditor 5's editing view is part of this page and MathML already in the
+        // content needs them from the start, so the file is loaded now - under fxTeX Pro's own
+        // id, which stops fxTeX Pro adding a second copy later.
         this._mathmlCssUrl = config.mathmlCssUrl || `${ origin }/fxtex.css`;
 
         loadCssOnce( cssUrl );
-        loadCssOnce( this._mathmlCssUrl );
+        loadFxtexStyleOnce( this._mathmlCssUrl );
         this._apiReady = loadScriptOnce( scriptUrl );
 
         this._defineMathMLSchema();
