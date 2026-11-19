@@ -300,7 +300,8 @@ function applyDesign( root, design, latexToggle, insertSelect ) {
             box.style.setProperty( 'max-width', 'calc(96vw / ' + size + ')', 'important' );   // still no wider than the window
         }
     }
-    if ( insertSelect && design.insertAs && insertSelect.querySelector( 'option[value="' + design.insertAs + '"]' ) ) {
+    // The design's choice, unless the author has made their own (addEditorControls()).
+    if ( insertSelect && design.insertAs && !insertSelect.hasAttribute( 'data-cc-remembered' ) && insertSelect.querySelector( 'option[value="' + design.insertAs + '"]' ) ) {
         insertSelect.value = design.insertAs;
     }
     if ( latexToggle && design.latex && !latexToggle.checked && !latexToggle.disabled ) {
@@ -316,6 +317,25 @@ function outputCode( output, kind ) {
     if ( typeof output.exportAs === 'function' ) return output.exportAs( kind );
     if ( kind === 'mathml' ) return output.setFormat( 'mathml' ).setWrapper( 'html' ).getCode();
     return output.setFormat( 'svg' ).getEquationURL();
+}
+
+// Where "Insert as" starts each time the dialog opens - this one is built once and reused, so it
+// would otherwise keep whatever the last open left: the form of the equation being edited, else the
+// author's last choice (addEditorControls()), else the design's, else the dialog's own default.
+function startInsertAs( select, format, design ) {
+    if ( !select ) return;
+    var prefs = {};
+    try { prefs = JSON.parse( localStorage.getItem( EDITOR_PREFS_KEY ) ) || {}; } catch ( e ) {}
+    var choices = [ format, prefs.insertAs, design && design.insertAs ];
+    for ( var i = 0; i < choices.length; i++ ) {
+        if ( choices[ i ] && select.querySelector( 'option[value="' + choices[ i ] + '"]' ) ) {
+            select.value = choices[ i ];
+            return;
+        }
+    }
+    for ( var j = 0; j < select.options.length; j++ ) {
+        if ( select.options[ j ].defaultSelected ) select.value = select.options[ j ].value;
+    }
 }
 
 // The editor's own controls, as the Google Docs sidebar has them: the toolbar's size (50-120%) at the
@@ -403,6 +423,16 @@ function addEditorControls( root, design, parts ) {
             latex.dispatchEvent( new Event( 'change', { bubbles: true } ) );
         }
         latex.addEventListener( 'change', function () { prefs.latex = latex.checked; save(); } );
+    }
+
+    // Insert as: the author's last choice, over the design's.
+    var insertAs = parts.insertSelect;
+    if ( insertAs ) {
+        if ( prefs.insertAs && insertAs.querySelector( 'option[value="' + prefs.insertAs + '"]' ) ) {
+            insertAs.value = prefs.insertAs;
+            insertAs.setAttribute( 'data-cc-remembered', '' );
+        }
+        insertAs.addEventListener( 'change', function () { prefs.insertAs = insertAs.value; save(); } );
     }
 
     stackPanes( root, prefs, save );
@@ -823,6 +853,20 @@ class Eqneditor5 extends Plugin {
         this._defineMathMLSchema();
         this._defineImageReferrerSchema();
 
+        // fxTeX Pro draws the MathML of the equations already in the document, and needs
+        // EqEditor.init() first. Left until the panel first opened, every one of them showed - and
+        // was saved as - fxTeX's "not initialised" error. Started as the editor loads instead, and
+        // the equations redrawn once it is ready (until then they are written without their MathML).
+        this._mathReady = false;
+        this._apiReady.then( () => ensureInit( this._licence ) ).then( () => {
+            this._mathReady = true;
+            for ( const root of editor.model.document.getRoots() ) {
+                for ( const item of editor.model.createRangeIn( root ).getItems() ) {
+                    if ( item.is( 'element', 'ccMathML' ) ) editor.editing.reconvertItem( item );
+                }
+            }
+        } ).catch( () => {} );
+
         this._balloon = editor.plugins.get( ContextualBalloon );
         this.eqnView = this._createEqnEditorView();
         this.editorReady = false;
@@ -920,9 +964,7 @@ class Eqneditor5 extends Plugin {
             if ( inp ) {
                 this.textarea.insert( inp, inp.length );
             }
-            if ( mode && this.eqnView.insertModeSelect ) {
-                this.eqnView.insertModeSelect.value = mode;
-            }
+            startInsertAs( this.eqnView.insertModeSelect, mode, this._design );
             this.textarea.notifyOutputs();
 
             // Ready to type into, with its cursor showing - focus otherwise stays on the button
@@ -976,7 +1018,8 @@ class Eqneditor5 extends Plugin {
         }
 
         addEditorControls( document.getElementById( ids.root ), this._design, { textArea: this.textarea, mathView: this.mathview, output: this.output,
-            latexToggle: this.eqnView.latexCheckbox, inlineToggle: this.eqnView.inlineCheckbox } );
+            latexToggle: this.eqnView.latexCheckbox, inlineToggle: this.eqnView.inlineCheckbox,
+            insertSelect: this.eqnView.insertModeSelect } );
         applyDesign( document.getElementById( ids.root ), this._design,
             this.eqnView.latexCheckbox, this.eqnView.insertModeSelect );
 
@@ -1089,6 +1132,23 @@ class Eqneditor5 extends Plugin {
             model: ( viewElement, { writer } ) =>
                 writer.createElement( 'ccMathML', { latex: viewElement.getAttribute( 'data-cc-latex' ) || '' } )
         } );
+
+        // MathML the other fxEditor plugins write - a <math> carrying its LaTeX as its title, on its
+        // own or in the span with its spoken text - read the same way, so content that comes from
+        // them stays an equation that opens again, rather than being reduced to its text.
+        const latexOf = viewElement => {
+            if ( viewElement.name === 'math' ) return viewElement.getAttribute( 'title' ) || null;
+            for ( const child of viewElement.getChildren() ) {
+                if ( child.is( 'element', 'math' ) ) return child.getAttribute( 'title' ) || null;
+            }
+            return null;
+        };
+        const fromOtherPlugins = ( viewElement, { writer } ) => {
+            const latex = latexOf( viewElement );
+            return latex ? writer.createElement( 'ccMathML', { latex: latex.trim() } ) : null;
+        };
+        editor.conversion.for( 'upcast' ).elementToElement( { view: { name: 'span', classes: 'cc-math' }, model: fromOtherPlugins } );
+        editor.conversion.for( 'upcast' ).elementToElement( { view: { name: 'math', attributes: { title: true } }, model: fromOtherPlugins } );
     }
 
     /**
@@ -1113,7 +1173,7 @@ class Eqneditor5 extends Plugin {
     /** LaTeX to MathML, through the API's own converter so the plugin and the editor cannot
      * disagree about what the markup should be. */
     _renderMathML( latex ) {
-        if ( !latex || typeof EqEditor === 'undefined' ||
+        if ( !latex || !this._mathReady || typeof EqEditor === 'undefined' ||
              typeof EqEditor.Output.latexToMathML !== 'function' ) return '';
 
         return EqEditor.Output.latexToMathML( latex, true );
