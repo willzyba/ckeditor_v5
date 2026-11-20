@@ -87,6 +87,8 @@ function loadScriptOnce( url ) {
 // to fxTeX Pro - skip it and they keep the placeholder converter for their whole lifetime, even
 // once fxeditor.api.min.js itself has loaded. Called once per page; an empty licence is the
 // normal, expected state until a real one is configured.
+// fxTeX Pro's optional packages are off unless named here: without them \ce, \chemfig,
+// \dv and the picture environment were unknown commands, shown as their letters.
 let initPromise = null;
 
 function ensureInit( licence ) {
@@ -94,7 +96,7 @@ function ensureInit( licence ) {
         return initPromise;
     }
     initPromise = ( typeof window.EqEditor.init === 'function' )
-        ? window.EqEditor.init( { licence: licence || '' } ).catch( err => {
+        ? window.EqEditor.init( { licence: licence || '', packages: [ 'mhchem', 'chemfig', 'physics', 'picture' ] } ).catch( err => {
             window.console && console.warn( `fxTeX Pro: ${ err && err.message || err }` );
         } )
         : Promise.resolve();
@@ -317,6 +319,60 @@ function outputCode( output, kind ) {
     if ( typeof output.exportAs === 'function' ) return output.exportAs( kind );
     if ( kind === 'mathml' ) return output.setFormat( 'mathml' ).setWrapper( 'html' ).getCode();
     return output.setFormat( 'svg' ).getEquationURL();
+}
+
+// "Insert as LaTeX": the equation as text fxTeX Pro typesets where the page is shown - $...$
+// inline, $$...$$ on its own line - the delimiters fxTeX Pro looks for by default.
+function texOf( latex, inline ) {
+    return inline ? '$' + latex + '$' : '$$' + latex + '$$';
+}
+
+// The $...$ or $$...$$ in `text` that `offset` is in or at the edge of, read as fxTeX Pro reads
+// it: $$ opens a display equation and a single $ an inline one, each closed by the same, and
+// \$ is a dollar sign, not a delimiter. Returns { start, end, latex, display }, or null.
+function texAround( text, offset ) {
+    var i = 0;
+    while ( i < text.length ) {
+        var c = text.charAt( i );
+        if ( c === '\\' ) { i += 2; continue; }
+        if ( c !== '$' ) { i++; continue; }
+        var display = text.charAt( i + 1 ) === '$', size = display ? 2 : 1, j = i + size;
+        while ( j < text.length && !( text.charAt( j ) === '$' && ( !display || text.charAt( j + 1 ) === '$' ) ) ) {
+            j += text.charAt( j ) === '\\' ? 2 : 1;
+        }
+        if ( j >= text.length ) return null;
+        var end = j + size;
+        if ( offset >= i && offset <= end ) {
+            var latex = text.slice( i + size, j ).trim();
+            return latex ? { start: i, end: end, latex: latex, display: display } : null;
+        }
+        i = end;
+    }
+    return null;
+}
+
+// An image equation's LaTeX, read back from its rendering URL, starts with the \inline the editor
+// put there for an inline equation. Taken off, as the editor adds it again (left on, it showed in
+// the editor and each edit added another), and given back as whether the equation is inline.
+function splitInline( latex ) {
+    var found = /^\s*\\inline\b\s*/.exec( latex );
+    return { latex: found ? latex.slice( found[ 0 ].length ) : latex, inline: !!found };
+}
+
+// The Inline switch as the dialog opens: an edited LaTeX equation's own form ($ inline, $$
+// not), otherwise what the author last chose. Set without a change event, so editing one
+// equation does not change the remembered choice; `apply` shows the change in the dialog.
+function startInline( toggle, inline, apply ) {
+    if ( !toggle || toggle.disabled ) return;
+    if ( typeof inline !== 'boolean' ) {
+        var prefs = {};
+        try { prefs = JSON.parse( localStorage.getItem( EDITOR_PREFS_KEY ) ) || {}; } catch ( e ) {}
+        inline = typeof prefs.inline === 'boolean' ? prefs.inline : toggle.defaultChecked;
+    }
+    if ( toggle.checked !== inline ) {
+        toggle.checked = inline;
+        apply( inline );
+    }
 }
 
 // Where "Insert as" starts each time the dialog opens - this one is built once and reused, so it
@@ -891,7 +947,10 @@ class Eqneditor5 extends Plugin {
         view.addObserver( DoubleClickObserver );
         editor.listenTo( view.document, 'dblclick', ( e, dat ) => {
             const found = this._equationAt( dat.domTarget );
-            if ( !found ) return;
+            if ( !found ) {
+                this._editLatexAt( dat );
+                return;
+            }
 
             // The browser's own double-click would select a word (or the image widget's label)
             // as the editor opens.
@@ -903,19 +962,19 @@ class Eqneditor5 extends Plugin {
             // CKEditor's own image toolbar, which takes the balloon from the equation editor.
             this._editing = found.element;
             editor.model.change( writer => writer.setSelection( found.element, 'after' ) );
-            this._initEqnEditor( null, found.latex, found.mode );
+            this._initEqnEditor( null, found.latex, found.mode, found.inline );
         } );
     }
 
     /**
-     * The equation a double-click landed in, as { element: its model element, latex, mode: 'mathml' or 'svg' }, or null.
+     * The equation a double-click landed in, as { element: its model element, latex, mode: 'mathml' or 'svg', inline }, or null.
      * Found from its wrapper rather than the exact element clicked: the click can land anywhere
      * in the equation's box - on the wrapper's own edges as much as on the <math> or <img>.
      */
     _equationAt( target ) {
         if ( !target || !target.closest ) return null;
 
-        let dom = null, latex = '', mode = '';
+        let dom = null, latex = '', mode = '', inline;
 
         // A MathML equation. The model keeps the LaTeX (see _insertMathML), and the wrapper
         // carries it as data-cc-latex; the <math> element's own title holds it too.
@@ -925,6 +984,7 @@ class Eqneditor5 extends Plugin {
             dom = wrapper;
             mode = 'mathml';
             latex = wrapper.getAttribute( 'data-cc-latex' ) || ( math && math.getAttribute( 'title' ) ) || '';
+            inline = math ? math.getAttribute( 'display' ) !== 'block' : undefined;
         } else {
             // An image equation: the LaTeX is recovered from the rendering request that produced it.
             const widget = target.closest( '.image-inline' );
@@ -933,7 +993,9 @@ class Eqneditor5 extends Plugin {
             if ( match ) {
                 dom = widget || img;
                 mode = 'svg';
-                latex = decodeEquation( match[ 2 ] );
+                const eq = splitInline( decodeEquation( match[ 2 ] ) );
+                latex = eq.latex;
+                inline = eq.inline;
             }
         }
 
@@ -942,14 +1004,59 @@ class Eqneditor5 extends Plugin {
 
         const viewElement = this.editor.editing.view.domConverter.mapDomToView( dom );
         const element = viewElement && this.editor.editing.mapper.toModelElement( viewElement );
-        return element ? { element, latex, mode } : null;
+        return element ? { element, latex, mode, inline } : null;
+    }
+
+    /**
+     * LaTeX in the text, as "Insert as LaTeX" puts it, opened for editing: the double-click has
+     * selected a word of it, and the $...$ or $$...$$ round that is the equation, which OK
+     * replaces. Its place is kept as the paragraph and the offsets in it, checked again on OK.
+     */
+    _editLatexAt( dat ) {
+        const editor = this.editor;
+        const selection = dat.domTarget && dat.domTarget.ownerDocument.getSelection();
+        if ( !selection || !selection.rangeCount ) return;
+        const dom = selection.getRangeAt( 0 );
+        const viewPosition = editor.editing.view.domConverter.domPositionToView( dom.startContainer, dom.startOffset );
+        const position = viewPosition && editor.editing.mapper.toModelPosition( viewPosition );
+        if ( !position || !position.parent.is( 'element' ) ) return;
+
+        const parent = position.parent;
+        const text = this._textOf( parent );
+        const found = texAround( text, position.offset );
+        if ( !found ) return;
+
+        dat.preventDefault();
+        // The word the double-click selected is in this page, as the equation editor is: left
+        // selected, the editor's own editing area put the equation into it as well as itself.
+        selection.removeAllRanges();
+        this._editing = { tex: true, parent, start: found.start, end: found.end, text: text.slice( found.start, found.end ) };
+        // The cursor goes just after it, as for an equation object (see the dblclick listener).
+        editor.model.change( writer => writer.setSelection( writer.createPositionAt( parent, found.end ) ) );
+        this._initEqnEditor( null, found.latex, 'latex', !found.display );
+    }
+
+    // A paragraph's text, with each object in it (an equation, an image) as one character, as it
+    // takes one place in the model.
+    _textOf( parent ) {
+        return Array.from( parent.getChildren() ).map( child => child.is( '$text' ) ? child.data : '\ufffc' ).join( '' );
+    }
+
+    // The model range of a LaTeX equation found by _editLatexAt(), if it is still there, unchanged.
+    _texRange( tex ) {
+        const parent = tex.parent;
+        if ( !parent.root || parent.root.rootName === '$graveyard' ) return null;
+        if ( this._textOf( parent ).slice( tex.start, tex.end ) !== tex.text ) return null;
+        const model = this.editor.model;
+        return model.createRange( model.createPositionAt( parent, tex.start ), model.createPositionAt( parent, tex.end ) );
     }
 
     /* --- opening ------------------------------------------------------------------------ */
 
-    // `mode`, for an equation reopened from the document: what it was ('mathml' or 'svg'), so that
-    // it stays that - an image equation edited is still an image.
-    _initEqnEditor( locale, inp = '', mode = '' ) {
+    // `mode`, for an equation reopened from the document: what it was ('mathml', 'svg' or 'latex'), so
+    // that it stays that - an image equation edited is still an image. `inline`: whether it is an
+    // inline equation ($...$, for LaTeX), which the Inline switch starts at.
+    _initEqnEditor( locale, inp = '', mode = '', inline = undefined ) {
         this._showUI( locale );
 
         this._apiReady.then( () => ensureInit( this._licence ) ).then( () => {
@@ -965,6 +1072,7 @@ class Eqneditor5 extends Plugin {
                 this.textarea.insert( inp, inp.length );
             }
             startInsertAs( this.eqnView.insertModeSelect, mode, this._design );
+            startInline( this.eqnView.inlineCheckbox, inline, on => this._applyInline( on ) );
             this.textarea.notifyOutputs();
 
             // Ready to type into, with its cursor showing - focus otherwise stays on the button
@@ -1039,12 +1147,28 @@ class Eqneditor5 extends Plugin {
 
     /* --- writing the equation into the document ------------------------------------------ */
 
-    /** MathML by default; an <img> against the SVG rendering service if "Insert as" says so. */
+    /** MathML by default; an <img> against the SVG rendering service, or the LaTeX as text, if "Insert as" says so. */
     _insertEquation( latex ) {
-        if ( this.eqnView.insertModeSelect && this.eqnView.insertModeSelect.value === 'svg' ) {
+        const mode = this.eqnView.insertModeSelect && this.eqnView.insertModeSelect.value;
+        if ( mode === 'svg' ) {
             return this._insertImage( latex );
         }
+        if ( mode === 'latex' ) {
+            return this._insertLatex( latex );
+        }
         return this._insertMathML( latex );
+    }
+
+    /** The LaTeX as text fxTeX Pro typesets where the page is shown: $...$ inline, $$...$$ not. It
+     * takes the formatting (bold and so on) of where it goes. */
+    _insertLatex( latex ) {
+        const editor = this.editor;
+        const text = texOf( latex, this.eqnView.inlineCheckbox.checked );
+
+        editor.model.change( writer => {
+            const selection = editor.model.document.selection;
+            editor.model.insertContent( writer.createText( text, selection.getAttributes() ), selection );
+        } );
     }
 
     /** An <img> at the rendering service. referrerPolicy is set explicitly (see
@@ -1200,12 +1324,7 @@ class Eqneditor5 extends Plugin {
                 }
             } );
 
-            view.inlineCheckbox.addEventListener( 'change', () => {
-                const inline = view.inlineCheckbox.checked;
-                document.getElementById( this._ids.root ).setAttribute( 'data-inline', inline ? 'on' : 'off' );
-                if ( this.mathview ) this.mathview.setInline( inline );
-                if ( this.output ) this.output.setInline( inline );
-            } );
+            view.inlineCheckbox.addEventListener( 'change', () => this._applyInline( view.inlineCheckbox.checked ) );
         }, { priority: 'low' } );
 
         this.listenTo( view, 'submit', () => {
@@ -1214,7 +1333,10 @@ class Eqneditor5 extends Plugin {
             if ( latex ) {
                 // Reopened from the document: selected, the equation is replaced by the edit.
                 const editing = this._editing;
-                if ( editing && editing.root && editing.root.rootName !== '$graveyard' ) {
+                if ( editing && editing.tex ) {
+                    const range = this._texRange( editing );
+                    if ( range ) this.editor.model.change( writer => writer.setSelection( range ) );
+                } else if ( editing && editing.root && editing.root.rootName !== '$graveyard' ) {
                     this.editor.model.change( writer => writer.setSelection( editing, 'on' ) );
                 }
                 this._insertEquation( latex );
@@ -1236,6 +1358,12 @@ class Eqneditor5 extends Plugin {
         } );
 
         return view;
+    }
+
+    _applyInline( inline ) {
+        document.getElementById( this._ids.root ).setAttribute( 'data-inline', inline ? 'on' : 'off' );
+        if ( this.mathview ) this.mathview.setInline( inline );
+        if ( this.output ) this.output.setInline( inline );
     }
 
     _hideUI() {
@@ -1426,7 +1554,8 @@ class EqnEditorView extends View {
                                             attributes: { class: 'cc-insert-mode cc-eqn-select', title: 'How to insert the equation' },
                                             children: [
                                                 { tag: 'option', attributes: { value: 'mathml', selected: 'selected' }, children: [ 'Insert MathML' ] },
-                                                { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert SVG' ] }
+                                                { tag: 'option', attributes: { value: 'svg' }, children: [ 'Insert SVG' ] },
+                                                { tag: 'option', attributes: { value: 'latex' }, children: [ 'Insert LaTeX' ] }
                                             ]
                                         },
                                         this.cancelButtonView,

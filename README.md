@@ -5,8 +5,8 @@
 The fxEditor plugin for [CKEditor 5](https://ckeditor.com/ckeditor-5/) (v42 or later) adds an
 **fx** button to the editor's toolbar. It opens fxEditor, CodeCogs' equation editor, in a
 balloon: a toolbar of symbols and structures, a maths view you type into directly, and a LaTeX
-view that stays in step with it. The equation goes into the document as MathML (the default) or
-as an SVG image, chosen in the balloon. Double-click an inserted equation to edit it again.
+view that stays in step with it. The equation goes into the document as MathML (the default),
+as an SVG image, or as LaTeX text (`$...$` inline, `$$...$$` on its own line) for [fxTeX](https://fxeditor.codecogs.com/docs/0-fxtex.php) to typeset on the page that shows it, chosen in the balloon. Double-click an inserted equation to edit it again.
 
 This repository has two parts:
 
